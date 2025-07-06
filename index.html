@@ -2,7 +2,7 @@
 <html>
 
 <head>
-  <meta charset="utf-8">
+  <meta charset="utf-8" />
   <title>Burger Hunt AR</title>
   <script src="https://aframe.io/releases/1.4.1/aframe.min.js"></script>
 
@@ -15,12 +15,36 @@
       margin: 0;
       overflow: hidden;
     }
+
+    #welcome {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: #000;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      font-family: sans-serif;
+      font-size: 1.6em;
+      z-index: 9999;
+      text-align: center;
+    }
   </style>
 </head>
 
 <body>
+  <!-- 🌟 Welcome Countdown -->
+  <div id="welcome">
+    <div>🍔 Welcome to the Burger Hunt!</div>
+    <div id="countdown" style="margin-top: 1em;">Starting in 5...</div>
+  </div>
+
+  <!-- 🛸 AR Scene -->
   <a-scene>
-    <!-- Camera + Click Detection -->
     <a-entity camera look-controls position="0 1.6 0">
       <a-cursor raycaster="objects: .clickable" fuse="false"></a-cursor>
     </a-entity>
@@ -30,7 +54,7 @@
   </a-scene>
 
   <script>
-    // 🔥 Firebase Config
+    // 🔥 Firebase Setup
     const firebaseConfig = {
       apiKey: "AIzaSyC0d1oNHIP7pvRTcqTWd-_ycJzvLXBNj6w",
       authDomain: "island-bites-tx26s.firebaseapp.com",
@@ -39,102 +63,121 @@
       messagingSenderId: "457685307311",
       appId: "1:457685307311:web:68358f9829cf64eadaa95a"
     };
+
     firebase.initializeApp(firebaseConfig);
     const firestore = firebase.firestore();
 
-    let burgerSpots = [];
-    let userLat = null;
-    let userLon = null;
-    let activeBurgers = {};
+    // 🕒 Countdown Logic
+    const welcomeEl = document.getElementById("welcome");
+    const countdownEl = document.getElementById("countdown");
+    let countdown = 5;
 
-    // 📡 Fetch live burger spots from Firestore
-    firestore.collection("burgerSpots").get().then(snapshot => {
-      snapshot.forEach(doc => {
-        const data = doc.data();
-        burgerSpots.push({
-          id: doc.id,
-          lat: data.lat,
-          lon: data.lon
+    const interval = setInterval(() => {
+      countdown--;
+      countdownEl.textContent = `Starting in ${countdown}...`;
+
+      if (countdown <= 0) {
+        clearInterval(interval);
+        welcomeEl.style.display = "none";
+        initBurgerHunt();
+      }
+    }, 1000);
+
+    // 🧠 Game Logic Bootstraps Here
+    function initBurgerHunt() {
+      let burgerSpots = [];
+      let userLat = null;
+      let userLon = null;
+      let activeBurgers = {};
+
+      // 🍔 Load burger drop zones
+      firestore.collection("burgerSpots").get().then(snapshot => {
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          burgerSpots.push({
+            id: doc.id,
+            lat: data.lat,
+            lon: data.lon
+          });
         });
       });
-    });
 
-    // 📍 Watch GPS
-    navigator.geolocation.watchPosition((pos) => {
-      userLat = pos.coords.latitude;
-      userLon = pos.coords.longitude;
-      checkProximityAndSpawn();
-    }, (err) => {
-      alert("GPS error: " + err.message);
-    }, { enableHighAccuracy: true });
+      // 📍 GPS Watcher
+      navigator.geolocation.watchPosition((pos) => {
+        userLat = pos.coords.latitude;
+        userLon = pos.coords.longitude;
+        checkProximityAndSpawn();
+      }, (err) => {
+        alert("GPS error: " + err.message);
+      }, { enableHighAccuracy: true });
 
-    // 📏 Distance check (meters)
-    function isNear(lat1, lon1, lat2, lon2, radius = 30) {
-      const toRad = deg => deg * Math.PI / 180;
-      const R = 6371e3;
-      const dLat = toRad(lat2 - lat1);
-      const dLon = toRad(lon2 - lon1);
-      const a = Math.sin(dLat / 2) ** 2 +
-        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-        Math.sin(dLon / 2) ** 2;
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      return R * c < radius;
-    }
+      // 📏 Haversine Distance (in meters)
+      function isNear(lat1, lon1, lat2, lon2, radius = 30) {
+        const toRad = d => d * Math.PI / 180;
+        const R = 6371e3;
+        const dLat = toRad(lat2 - lat1);
+        const dLon = toRad(lon2 - lon1);
+        const a = Math.sin(dLat / 2) ** 2 +
+          Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+          Math.sin(dLon / 2) ** 2;
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c < radius;
+      }
 
-    function checkProximityAndSpawn() {
-      burgerSpots.forEach(spot => {
-        if (isNear(userLat, userLon, spot.lat, spot.lon)) {
-          firestore.collection("claimedBurgers").doc(spot.id).get().then(docSnap => {
-            if (!docSnap.exists() && !activeBurgers[spot.id]) {
-              spawnBurger(spot);
-            }
-          });
-        }
-      });
-    }
-
-    // 🍔 Spawn burger + clickable hitbox
-    function spawnBurger(spot) {
-      const scene = document.querySelector("a-scene");
-
-      const burger = document.createElement("a-entity");
-      burger.setAttribute("id", spot.id);
-      burger.setAttribute("gltf-model", "assets/burger.glb");
-      burger.setAttribute("scale", "0.5 0.5 0.5");
-      burger.setAttribute("position", "0 0 -3");
-      burger.setAttribute("animation", "property: rotation; to: 0 360 0; loop: true; dur: 4000");
-
-      // Transparent clickable hitbox
-      const hitbox = document.createElement("a-box");
-      hitbox.setAttribute("position", "0 1 0");
-      hitbox.setAttribute("width", "1");
-      hitbox.setAttribute("height", "100");
-      hitbox.setAttribute("depth", "1");
-      hitbox.setAttribute("opacity", "0");
-      hitbox.setAttribute("class", "clickable");
-
-      hitbox.addEventListener("click", () => {
-        const claimRef = firestore.collection("claimedBurgers").doc(spot.id);
-
-        claimRef.get().then(docSnap => {
-          if (!docSnap.exists()) {
-            claimRef.set({
-              claimedBy: "test-user", // swap with Firebase Auth user later
-              claimedAt: Date.now()
-            }).then(() => {
-              alert("🍔 Burger claimed via Firestore!");
-              scene.removeChild(burger);
-              delete activeBurgers[spot.id];
+      // 🍔 Check proximity and spawn burger
+      function checkProximityAndSpawn() {
+        burgerSpots.forEach(spot => {
+          if (isNear(userLat, userLon, spot.lat, spot.lon)) {
+            firestore.collection("claimedBurgers").doc(spot.id).get().then(docSnap => {
+              if (!docSnap.exists() && !activeBurgers[spot.id]) {
+                spawnBurger(spot);
+              }
             });
-          } else {
-            alert("🚫 Already claimed!");
           }
         });
-      });
+      }
 
-      burger.appendChild(hitbox);
-      scene.appendChild(burger);
-      activeBurgers[spot.id] = true;
+      // 🍔 Create burger + hitbox
+      function spawnBurger(spot) {
+        const scene = document.querySelector("a-scene");
+
+        const burger = document.createElement("a-entity");
+        burger.setAttribute("id", spot.id);
+        burger.setAttribute("gltf-model", "assets/burger.glb");
+        burger.setAttribute("scale", "0.5 0.5 0.5");
+        burger.setAttribute("position", "0 0 -3");
+        burger.setAttribute("animation", "property: rotation; to: 0 360 0; loop: true; dur: 4000");
+
+        const hitbox = document.createElement("a-box");
+        hitbox.setAttribute("position", "0 1 0");
+        hitbox.setAttribute("width", "1");
+        hitbox.setAttribute("height", "100");
+        hitbox.setAttribute("depth", "1");
+        hitbox.setAttribute("opacity", "0");
+        hitbox.setAttribute("class", "clickable");
+
+        hitbox.addEventListener("click", () => {
+          const claimRef = firestore.collection("claimedBurgers").doc(spot.id);
+          claimRef.get().then(docSnap => {
+            if (!docSnap.exists()) {
+              claimRef.set({
+                claimedBy: "test-user", // Replace with real Auth later
+                claimedAt: Date.now()
+              }).then(() => {
+                alert("🍔 You claimed this burger!");
+                scene.removeChild(burger);
+                delete activeBurgers[spot.id];
+              });
+            } else {
+              alert("❌ Burger already claimed!");
+            }
+          });
+        });
+
+        burger.appendChild(hitbox);
+        scene.appendChild(burger);
+        activeBurgers[spot.id] = true;
+      }
     }
   </script>
 </body>
