@@ -1,59 +1,56 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Burger Hunt WebAR</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-<head>
-  <meta charset="utf-8" />
-  <title>Burger Hunt AR</title>
-  <script src="https://aframe.io/releases/1.4.1/aframe.min.js"></script>
+    <!-- A-Frame + WebXR -->
+    <script src="https://aframe.io/releases/1.4.1/aframe.min.js"></script>
 
-  <!-- Firebase SDKs -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
 
-  <style>
-    body {
-      margin: 0;
-      overflow: hidden;
-    }
+    <style>
+      body { margin: 0; overflow: hidden; }
 
-    #welcome {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      background: #000;
-      color: #fff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-direction: column;
-      font-family: sans-serif;
-      font-size: 1.6em;
-      z-index: 9999;
-      text-align: center;
-    }
-  </style>
-</head>
+      #welcome {
+        position: fixed;
+        top: 0; left: 0;
+        width: 100vw; height: 100vh;
+        background: #000;
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        font-family: sans-serif;
+        font-size: 1.6em;
+        z-index: 9999;
+        text-align: center;
+      }
+    </style>
+  </head>
 
-<body>
-  <!-- 🌟 Welcome Countdown -->
-  <div id="welcome">
-    <div>🍔 Welcome to the Burger Hunt!</div>
-    <div id="countdown" style="margin-top: 1em;">Starting in 5...</div>
-  </div>
+  <body>
+    <!-- 🧭 Welcome Screen -->
+    <div id="welcome">
+      <div>🍔 Welcome to Burger Hunt</div>
+      <div id="countdown" style="margin-top: 1em;">Starting in 10...</div>
+    </div>
 
-  <!-- 🛸 AR Scene -->
-  <a-scene>
-    <a-entity camera look-controls position="0 1.6 0">
-      <a-cursor raycaster="objects: .clickable" fuse="false"></a-cursor>
-    </a-entity>
+    <!-- 🛸 AR Scene with Camera Passthrough -->
+    <a-scene
+      webxr="requiredFeatures: hit-test; optionalFeatures: dom-overlay"
+      renderer="colorManagement: true; physicallyCorrectLights: true"
+      xr-mode="ar"
+      vr-mode-ui="enabled: false"
+      embedded
+    >
+      <a-camera position="0 1.6 0"></a-camera>
+    </a-scene>
 
-    <a-light type="ambient" color="#FFF"></a-light>
-    <a-sky color="#ECECEC"></a-sky>
-  </a-scene>
-
-  <script>
     // 🔥 Firebase Setup
     const firebaseConfig = {
       apiKey: "AIzaSyC0d1oNHIP7pvRTcqTWd-_ycJzvLXBNj6w",
